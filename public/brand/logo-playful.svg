@@ -1,0 +1,36 @@
+<svg width="520" height="140" viewBox="0 0 520 140" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Icon -->
+  <g transform="translate(18,28)">
+    <!-- Body -->
+    <rect x="0" y="0" width="96" height="84" rx="18" fill="#111827"></rect>
+    <!-- Inner bezel -->
+    <rect x="12" y="14" width="72" height="46" rx="10" fill="#0B0F14" stroke="#1F2937" stroke-width="2"></rect>
+    <!-- Print head -->
+    <rect x="43" y="6" width="10" height="26" rx="5" fill="#A855F7"></rect>
+    <!-- Nozzle / carriage -->
+    <rect x="34" y="38" width="28" height="8" rx="4" fill="#00E5FF"></rect>
+    <!-- Bed line -->
+    <rect x="18" y="66" width="60" height="6" rx="3" fill="#00E5FF" opacity="0.35"></rect>
+
+    <!-- Status LEDs -->
+    <circle cx="22" cy="76" r="4" fill="#EF4444"></circle>
+    <circle cx="36" cy="76" r="4" fill="#F59E0B"></circle>
+    <circle cx="50" cy="76" r="4" fill="#22C55E"></circle>
+
+    <!-- Tiny accent screw -->
+    <circle cx="76" cy="76" r="2.5" fill="#334155"></circle>
+  </g>
+
+  <!-- Wordmark -->
+  <text x="140" y="88" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto" font-size="48" font-weight="800" fill="#FFFFFF" letter-spacing="-0.5">
+    Print
+  </text>
+  <text x="252" y="88" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto" font-size="48" font-weight="800" fill="#00E5FF" letter-spacing="-0.5">
+    Starter
+  </text>
+
+  <!-- Tagline -->
+  <text x="142" y="116" font-family="Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto" font-size="14" font-weight="600" fill="#94A3B8" letter-spacing="0.6">
+    GET UNSTUCK • FIND A REAL PRINT
+  </text>
+</svg>

@@ -1,4 +1,3 @@
-// app/api/generate/route.js
 import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { getOpenAIClient } from "@/lib/openai";
@@ -10,7 +9,7 @@ export const runtime = "nodejs";
 
 const TTL_SECONDS = 60 * 30; // 30 minutes
 const RATE_LIMIT_WINDOW_SECONDS = 60 * 10; // 10 minutes
-const RATE_LIMIT_MAX = 12; // per IP per window
+const RATE_LIMIT_MAX = 20; // per IP per window
 
 const ALLOWED_FILAMENTS = ["PLA", "PETG", "ABS/ASA", "TPU", "Other"];
 const ALLOWED_TIMES = ["1 hour", "2 hours", "4 hours", "8 hours", "Any"];
@@ -32,77 +31,24 @@ function normalizeText(s) {
     .trim();
 }
 
-function tokenSet(s) {
-  return new Set(normalizeText(s).split(" ").filter(Boolean));
-}
-
-function jaccard(a, b) {
-  const A = tokenSet(a);
-  const B = tokenSet(b);
-  let inter = 0;
-  for (const t of A) if (B.has(t)) inter++;
-  const union = A.size + B.size - inter;
-  return union === 0 ? 0 : inter / union;
-}
-
-function dedupeIdeas(ideas) {
-  const seenTitles = new Set();
-  const kept = [];
-
-  for (const idea of ideas) {
-    const title = String(idea?.title ?? "").trim();
-    if (!title) continue;
-
-    const normTitle = normalizeText(title);
-    if (seenTitles.has(normTitle)) continue;
-
-    let tooSimilar = false;
-    for (const k of kept) {
-      if (jaccard(title, k.title) >= 0.72) {
-        tooSimilar = true;
-        break;
-      }
-    }
-    if (tooSimilar) continue;
-
-    seenTitles.add(normTitle);
-    kept.push(idea);
-  }
-
-  return kept;
-}
-
 function sha256(s) {
   return crypto.createHash("sha256").update(s).digest("hex");
 }
 
-function makeKeys({ prompt, printer, filament, timeLimit, skill }) {
-  const raw = JSON.stringify({
-    prompt: String(prompt || "").trim(),
-    printer: String(printer || "").trim(),
-    filament: String(filament || "").trim(),
-    timeLimit: String(timeLimit || "").trim(),
-    skill: String(skill || "").trim(),
-  });
-
-  const soft = JSON.stringify({
-    prompt: normalizeText(prompt),
+function makeKey({ printer, filament, timeLimit, skill }) {
+  const norm = JSON.stringify({
     printer: normalizeText(printer),
     filament: normalizeText(filament),
     timeLimit: normalizeText(timeLimit),
     skill: normalizeText(skill),
   });
-
-  return {
-    exactKey: `ideas:exact:${sha256(raw)}`,
-    similarKey: `ideas:similar:${sha256(soft)}`,
-  };
+  return `prompts:suggestions:${sha256(norm)}`;
 }
 
 async function responseWithMonitoring({ req, startMs, status, body, headers = {}, meta = {}, errorMessage = "" }) {
   await monitorApiRequest({
     req,
-    route: "api_generate",
+    route: "api_prompts",
     status,
     durationMs: Date.now() - startMs,
     errorMessage,
@@ -118,7 +64,7 @@ export async function POST(req) {
   try {
     const rate = await enforceIpRateLimit({
       req,
-      scope: "generate",
+      scope: "prompts",
       limit: RATE_LIMIT_MAX,
       windowSeconds: RATE_LIMIT_WINDOW_SECONDS,
     });
@@ -136,13 +82,11 @@ export async function POST(req) {
 
     const body = await req.json();
 
-    const prompt = String(body?.prompt ?? "").trim();
     const printer = String(body?.printer ?? "Unknown printer").trim();
     const filament = String(body?.filament ?? "Unknown filament").trim();
     const timeLimit = String(body?.timeLimit ?? "Any").trim();
     const skill = String(body?.skill ?? "Any").trim();
 
-    validateLength("prompt", prompt, 600);
     validateLength("printer", printer, 80);
     validateLength("filament", filament, 30);
     validateLength("timeLimit", timeLimit, 20);
@@ -151,69 +95,39 @@ export async function POST(req) {
     validateOneOf("timeLimit", timeLimit, ALLOWED_TIMES);
     validateOneOf("skill", skill, ALLOWED_SKILLS);
 
-    if (!prompt) {
-      return responseWithMonitoring({
-        req,
-        startMs,
-        status: 400,
-        body: { error: "Prompt is required." },
-        errorMessage: "missing_prompt",
-      });
-    }
-
-    const { exactKey, similarKey } = makeKeys({ prompt, printer, filament, timeLimit, skill });
-
-    const exactHit = await redis.get(exactKey);
-    if (exactHit) {
+    const cacheKey = makeKey({ printer, filament, timeLimit, skill });
+    const cacheHit = await redis.get(cacheKey);
+    if (cacheHit) {
       return responseWithMonitoring({
         req,
         startMs,
         status: 200,
-        body: exactHit,
-        meta: { cache: "exact" },
-      });
-    }
-
-    const similarHit = await redis.get(similarKey);
-    if (similarHit) {
-      return responseWithMonitoring({
-        req,
-        startMs,
-        status: 200,
-        body: similarHit,
-        meta: { cache: "similar" },
+        body: cacheHit,
+        meta: { cache: "hit" },
       });
     }
 
     const client = getOpenAIClient();
 
     const system = `
-You are a 3D printing idea generator.
+You generate short, practical prompt ideas for a 3D print ideation tool.
 Return STRICT JSON only. No markdown. No commentary.
-Output must be: { "ideas": [ ... ] }
-Generate exactly 12 ideas (we will dedupe down to 10).
+Output must be: { "prompts": [ ... ] }
+Return exactly 5 prompts.
 
-Each idea object must have:
-- title (string)
-- description (string, 1-2 sentences, realistic to print)
-- estimated_print_time_hours (number, 0.25-48)
-- estimated_material_grams (number, 5-2000)
-- difficulty ("beginner" | "intermediate" | "advanced")
-- monetization_score (integer 1-5)
-
-Avoid unsafe/illegal/weapon content.
-Make ideas meaningfully distinct from each other.
+Each prompt must:
+- Be 1 sentence.
+- Include practical constraints (material, time, use case, or audience).
+- Be safe and legal.
+- Be distinct from the others.
 `.trim();
 
     const user = `
-Constraints:
+Generate prompt suggestions for:
 - Printer: ${printer}
 - Filament: ${filament}
 - Time limit: ${timeLimit}
 - Skill: ${skill}
-
-User prompt:
-${prompt}
 `.trim();
 
     const resp = await client.responses.create({
@@ -222,27 +136,39 @@ ${prompt}
         { role: "system", content: system },
         { role: "user", content: user },
       ],
-      temperature: 0.9,
+      temperature: 1,
     });
 
     const text = resp.output_text?.trim() ?? "";
     const parsed = safeJsonParse(text);
 
-    if (!parsed.ok || !Array.isArray(parsed.value?.ideas)) {
+    if (!parsed.ok || !Array.isArray(parsed.value?.prompts)) {
       return responseWithMonitoring({
         req,
         startMs,
         status: 502,
-        body: { error: "Model returned invalid JSON.", raw: text.slice(0, 4000) },
+        body: { error: "Model returned invalid JSON." },
         errorMessage: "invalid_model_json",
       });
     }
 
-    const unique = dedupeIdeas(parsed.value.ideas).slice(0, 10);
-    const payload = { ideas: unique };
+    const prompts = parsed.value.prompts
+      .map((p) => String(p || "").trim())
+      .filter(Boolean)
+      .slice(0, 5);
 
-    await redis.set(exactKey, payload, { ex: TTL_SECONDS });
-    await redis.set(similarKey, payload, { ex: TTL_SECONDS });
+    if (prompts.length === 0) {
+      return responseWithMonitoring({
+        req,
+        startMs,
+        status: 502,
+        body: { error: "No prompts generated." },
+        errorMessage: "empty_prompt_list",
+      });
+    }
+
+    const payload = { prompts };
+    await redis.set(cacheKey, payload, { ex: TTL_SECONDS });
 
     return responseWithMonitoring({
       req,
