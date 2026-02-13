@@ -54,6 +54,7 @@ Optional environment variables:
 - `ALERT_EMAIL_FROM`: Sender email for alerts (defaults to `SMTP_USER`).
 - `ALERT_EMAIL_SUBJECT_PREFIX`: Prefix for email subject lines (default `[PrintStarter Alert]`).
 - `ALERT_TEST_TOKEN`: Secret token required for manual test alert endpoint.
+- `NEXT_PUBLIC_GA_ID`: Google Analytics Measurement ID (for example `G-XXXXXXXXXX`).
 
 Manual test endpoint:
 
@@ -61,3 +62,22 @@ Manual test endpoint:
 - Provide token via header `x-alert-test-token` (or JSON body `{ "token": "..." }`)
 - Example:
   - `curl -X POST http://localhost:3000/api/test-alert -H "x-alert-test-token: YOUR_TOKEN"`
+
+## Analytics Events
+
+When `NEXT_PUBLIC_GA_ID` is set, Google Analytics is loaded and these events are emitted:
+
+- `landing_header_get_started_click`
+- `landing_hero_start_generating_click`
+- `generate_form_submitted`
+- `generate_request_started`
+- `generate_request_succeeded`
+- `generate_request_failed`
+- `random_prompt_requested`
+- `random_prompt_loaded`
+
+Analytics consent:
+
+- A consent banner is shown before analytics starts.
+- GA loads only after user clicks `Accept`.
+- Consent is stored in `localStorage` key `analytics-consent`.

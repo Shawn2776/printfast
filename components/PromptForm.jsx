@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { trackEvent } from "@/lib/analytics";
 
 const PRINTERS = [
   { label: "Creality K2 Plus", value: "Creality K2 Plus" },
@@ -44,11 +45,24 @@ export default function PromptForm({ onGenerate, loading }) {
 
   function submit(e) {
     e.preventDefault();
+    trackEvent("generate_form_submitted", {
+      printer,
+      filament,
+      time_limit: timeLimit,
+      skill,
+      prompt_length: prompt.length,
+    });
     onGenerate({ printer, filament, timeLimit, skill, prompt });
   }
 
   async function onRandomPrompt() {
     setPromptLoading(true);
+    trackEvent("random_prompt_requested", {
+      printer,
+      filament,
+      time_limit: timeLimit,
+      skill,
+    });
     try {
       const res = await fetch("/api/prompts", {
         method: "POST",
@@ -58,6 +72,10 @@ export default function PromptForm({ onGenerate, loading }) {
       const data = await res.json();
       if (res.ok && Array.isArray(data?.prompts) && data.prompts.length > 0) {
         setPrompt(randomFrom(data.prompts));
+        trackEvent("random_prompt_loaded", {
+          source: "ai",
+          suggestions_returned: data.prompts.length,
+        });
         return;
       }
     } catch {
@@ -66,6 +84,9 @@ export default function PromptForm({ onGenerate, loading }) {
       setPromptLoading(false);
     }
     setPrompt(randomFrom(FALLBACK_PROMPTS));
+    trackEvent("random_prompt_loaded", {
+      source: "fallback",
+    });
   }
 
   return (

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import PromptForm from "@/components/PromptForm";
 import IdeaCard from "@/components/IdeaCard";
+import { trackEvent } from "@/lib/analytics";
 
 function SkeletonGrid() {
   return (
@@ -35,6 +36,11 @@ export default function GeneratePage() {
     setError("");
     setLoading(true);
     setIdeas([]);
+    trackEvent("generate_request_started", {
+      filament: payload?.filament,
+      time_limit: payload?.timeLimit,
+      skill: payload?.skill,
+    });
 
     try {
       const res = await fetch("/api/generate", {
@@ -47,12 +53,21 @@ export default function GeneratePage() {
 
       if (!res.ok) {
         setError(data?.error ?? "Request failed.");
+        trackEvent("generate_request_failed", {
+          status: res.status,
+        });
         return;
       }
 
       setIdeas(data?.ideas ?? []);
+      trackEvent("generate_request_succeeded", {
+        idea_count: Array.isArray(data?.ideas) ? data.ideas.length : 0,
+      });
     } catch (e) {
       setError(e?.message ?? "Network error.");
+      trackEvent("generate_request_failed", {
+        status: "network_error",
+      });
     } finally {
       setLoading(false);
     }

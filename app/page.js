@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import TrackedLink from "@/components/TrackedLink";
 
 const highlights = [
   { title: "Constraint-first prompts", description: "Start with your printer, material, and print window." },
@@ -50,12 +51,14 @@ export default function Home() {
               </a>
             </nav>
 
-            <Link
+            <TrackedLink
               href="/generate"
+              eventName="landing_header_get_started_click"
+              eventParams={{ location: "header" }}
               className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#0A1222] transition hover:bg-[#dceeff]"
             >
               Get Started
-            </Link>
+            </TrackedLink>
           </div>
         </header>
 
@@ -68,17 +71,19 @@ export default function Home() {
               Turn raw ideas into printable products in minutes.
             </h1>
             <p className="mt-5 max-w-xl text-base text-white/72 md:text-lg">
-              Generate practical print concepts, screen for viability, and find production-ready paths before your
-              first slice.
+              Generate practical print concepts, screen for viability, and find production-ready paths before your first
+              slice.
             </p>
 
             <div className="mt-8 flex flex-wrap items-center gap-3">
-              <Link
+              <TrackedLink
                 href="/generate"
+                eventName="landing_hero_start_generating_click"
+                eventParams={{ location: "hero" }}
                 className="rounded-full bg-[#15b7ff] px-6 py-3 text-sm font-semibold text-[#001028] shadow-[0_12px_36px_rgba(21,183,255,0.35)] transition hover:bg-[#4ac8ff]"
               >
                 Start Generating
-              </Link>
+              </TrackedLink>
               <a
                 href="#workflow"
                 className="rounded-full border border-white/20 bg-white/5 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
@@ -165,7 +170,6 @@ export default function Home() {
             ))}
           </div>
         </section>
-
       </div>
     </main>
   );
